@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: codepair
+      POSTGRES_PASSWORD: codepair
+      POSTGRES_DB: codepair
+    ports:
+      - "5432:5432"            # host:container -> reachable at localhost:5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data   # keep data when container restarts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codepair -d codepair"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

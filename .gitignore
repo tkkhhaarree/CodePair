@@ -1,0 +1,18 @@
+# secrets
+.env
+
+# python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# node (UI later)
+node_modules/
+dist/
+
+# editor / OS
+.vscode/
+.DS_Store

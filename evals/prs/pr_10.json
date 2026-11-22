@@ -1,0 +1,19 @@
+{
+  "id": "pr_10",
+  "branch": "pr-10-boolean-enabled-disabled",
+  "title": "Accept enabled/disabled in fields.Boolean",
+  "description": "Feature-flag and settings forms often send 'enabled' / 'disabled' instead of true/false. This adds both words (lower, title and upper case) to the default truthy and falsy sets of fields.Boolean.",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "src/marshmallow/fields.py",
+      "line": 1174,
+      "category": "logic",
+      "description": "Copy-paste slip: the truthy set contains lowercase \"disabled\" where it should contain \"enabled\". Because truthy is checked before falsy, deserialize('disabled') returns True (the opposite of what was sent), and 'enabled' is rejected as invalid. Fix: replace \"disabled\" with \"enabled\" in the truthy set.",
+      "needs_other_files": false
+    }
+  ],
+  "related_files": [],
+  "proof_test": "evals/prs/proofs/test_pr_10.py",
+  "fix_patch": "evals/prs/proofs/pr_10_fix.diff"
+}

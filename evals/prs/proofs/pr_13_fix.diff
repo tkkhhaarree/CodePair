@@ -1,0 +1,13 @@
+diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py
+index c1be8841..70aae443 100644
+--- a/src/marshmallow/fields.py
++++ b/src/marshmallow/fields.py
+@@ -1573,7 +1573,7 @@ class TimeDelta(Field[dt.timedelta]):
+         microseconds_per_unit = self._unit_to_microseconds_mapping[self.precision]
+ 
+         try:
+-            microseconds = int(value * microseconds_per_unit)
++            microseconds = round(value * microseconds_per_unit)
+             return dt.timedelta(microseconds=microseconds)
+         except (OverflowError, ValueError) as error:
+             # OverflowError: value out of timedelta's range (e.g. infinity).

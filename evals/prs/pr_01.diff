@@ -1,0 +1,71 @@
+diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py
+index c375e74c..6375569f 100644
+--- a/src/marshmallow/fields.py
++++ b/src/marshmallow/fields.py
+@@ -728,21 +728,31 @@ class List(Field[list[_InternalT | None]]):
+         numbers = fields.List(fields.Float())
+ 
+     :param cls_or_instance: A field class or instance.
++    :param max_items: Maximum number of items allowed when deserializing.
++        If `None`, the list may be of any length.
+     :param kwargs: The same keyword arguments that :class:`Field` receives.
+ 
+     .. versionchanged:: 3.0.0rc9
+         Does not serialize scalar values to single-item lists.
++    .. versionchanged:: 4.5.0
++        Add ``max_items`` parameter.
+     """
+ 
+     #: Default error messages.
+-    default_error_messages = {"invalid": "Not a valid list."}
++    default_error_messages = {
++        "invalid": "Not a valid list.",
++        "too_long": "Must not contain more than {max_items} items.",
++    }
+ 
+     def __init__(
+         self,
+         cls_or_instance: Field[_InternalT] | type[Field[_InternalT]],
++        *,
++        max_items: int | None = None,
+         **kwargs: Unpack[_BaseFieldKwargs],
+     ):
+         super().__init__(**kwargs)
++        self.max_items = max_items
+         try:
+             self.inner: Field[_InternalT] = _resolve_field_instance(cls_or_instance)
+         except _FieldInstanceResolutionError as error:
+@@ -770,6 +780,11 @@ class List(Field[list[_InternalT | None]]):
+     def _deserialize(self, value, attr, data, **kwargs) -> list[_InternalT | None]:
+         if not utils.is_collection(value):
+             raise self.make_error("invalid")
++        if self.max_items is not None:
++            # materialize generators/querysets so we can check the length
++            value = list(value)
++            if len(value) >= self.max_items:
++                raise self.make_error("too_long", max_items=self.max_items)
+ 
+         result = []
+         errors = {}
+diff --git a/tests/test_deserialization.py b/tests/test_deserialization.py
+index f0ae688c..db0d4795 100644
+--- a/tests/test_deserialization.py
++++ b/tests/test_deserialization.py
+@@ -1363,6 +1363,17 @@ class TestFieldDeserialization:
+         assert excinfo.value.args[0][1] == ["Value 5 not in range"]
+         assert excinfo.value.args[0][2] == ["Value 25 not in range"]
+ 
++    def test_list_field_max_items(self):
++        field = fields.List(fields.Int(), max_items=3)
++        assert field.deserialize([1, 2]) == [1, 2]
++        with pytest.raises(ValidationError) as excinfo:
++            field.deserialize([1, 2, 3, 4, 5])
++        assert excinfo.value.args[0] == "Must not contain more than 3 items."
++
++    def test_list_field_max_items_with_generator(self):
++        field = fields.List(fields.Int(), max_items=3)
++        assert field.deserialize(x for x in [1, 2]) == [1, 2]
++
+     @pytest.mark.parametrize("value", ["notalist", 42, {}])
+     def test_list_field_deserialize_value_that_is_not_a_list(self, value):
+         field = fields.List(fields.Str())

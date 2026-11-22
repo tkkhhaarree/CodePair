@@ -1,0 +1,16 @@
+diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py
+index 2827b664..0131dc45 100644
+--- a/src/marshmallow/fields.py
++++ b/src/marshmallow/fields.py
+@@ -1997,8 +1997,9 @@ class Enum(Field[_EnumT]):
+         val = self.field._deserialize(value, attr, data, **kwargs)
+         if self.case_insensitive:
+             try:
+-                return self._lookup[val.lower()]
+-            except KeyError as error:
++                key = val.lower() if isinstance(val, str) else val
++                return self._lookup[key]
++            except (KeyError, TypeError) as error:
+                 raise self.make_error("unknown", choices=self.choices_text) from error
+         if self.by_value:
+             try:

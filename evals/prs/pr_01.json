@@ -1,0 +1,19 @@
+{
+  "id": "pr_01",
+  "branch": "pr-01-list-max-items",
+  "title": "Add max_items option to fields.List",
+  "description": "Adds an optional max_items argument to fields.List so APIs can cap how many items a client may send. Lists longer than max_items are rejected with a clear error message. Generators are supported by materializing them first. Tests included.",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "src/marshmallow/fields.py",
+      "line": 786,
+      "category": "off-by-one",
+      "description": "The length check uses >= instead of >, so a list with exactly max_items items is rejected even though the docstring and error message say max_items is the maximum allowed. Fix: len(value) > self.max_items.",
+      "needs_other_files": false
+    }
+  ],
+  "related_files": [],
+  "proof_test": "evals/prs/proofs/test_pr_01.py",
+  "fix_patch": "evals/prs/proofs/pr_01_fix.diff"
+}

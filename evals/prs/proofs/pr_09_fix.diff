@@ -1,0 +1,13 @@
+diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py
+index e5c548b3..34b96b6f 100644
+--- a/src/marshmallow/fields.py
++++ b/src/marshmallow/fields.py
+@@ -1124,7 +1124,7 @@ class Decimal(Number[decimal.Decimal]):
+         if self.allow_nan:
+             if num.is_nan():
+                 return decimal.Decimal("NaN")  # avoid sNaN, -sNaN and -NaN
+-        if self.places and num.is_finite():
++        if self.places is not None and num.is_finite():
+             exponent = decimal.Decimal((0, (1,), -self.places))
+             num = num.quantize(exponent, rounding=self.rounding)
+         return num

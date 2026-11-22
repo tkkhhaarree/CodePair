@@ -1,0 +1,19 @@
+{
+  "id": "pr_04",
+  "branch": "pr-04-set-value-sep",
+  "title": "Add sep parameter to utils.set_value for custom path separators",
+  "description": "utils.set_value always splits nested keys on '.'. This adds an optional sep argument so callers can use other separators such as '/'. Docstring and tests updated.",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "src/marshmallow/utils.py",
+      "line": 129,
+      "category": "signature-break",
+      "description": "The new sep parameter is inserted before value instead of after it. The existing caller in src/marshmallow/schema.py line 689, set_value(ret_d, key, value), was not updated, so the field's value is passed as sep and value defaults to None. Schema.load() then raises TypeError for non-string values or silently stores None / wrongly nested keys for string values. Fix: put sep last (value, sep='.') or update the caller.",
+      "needs_other_files": true
+    }
+  ],
+  "related_files": ["src/marshmallow/schema.py"],
+  "proof_test": "evals/prs/proofs/test_pr_04.py",
+  "fix_patch": "evals/prs/proofs/pr_04_fix.diff"
+}

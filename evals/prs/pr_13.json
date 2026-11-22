@@ -1,0 +1,19 @@
+{
+  "id": "pr_13",
+  "branch": "pr-13-timedelta-int-micros",
+  "title": "Build TimeDelta from integer microseconds when deserializing",
+  "description": "TimeDelta._deserialize passed a float in the precision unit straight to timedelta(), which does its own per-unit float arithmetic and can drift for large values. This converts to whole microseconds first, mirroring how _serialize already works through microseconds. Adds a test that large week/hour counts come back exact.",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "src/marshmallow/fields.py",
+      "line": 1576,
+      "category": "rounding",
+      "description": "int() truncates toward zero, while timedelta() rounds to the nearest microsecond (as the class docstring documents: '1.1234567' seconds -> 123457 microseconds). With this PR it becomes 123456, and sub-microsecond inputs such as 0.0009 ms become 0 instead of 1. Negative values are also biased toward zero. Fix: round(value * microseconds_per_unit).",
+      "needs_other_files": false
+    }
+  ],
+  "related_files": [],
+  "proof_test": "evals/prs/proofs/test_pr_13.py",
+  "fix_patch": "evals/prs/proofs/pr_13_fix.diff"
+}

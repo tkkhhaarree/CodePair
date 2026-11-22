@@ -1,0 +1,19 @@
+{
+  "id": "pr_09",
+  "branch": "pr-09-decimal-places-int",
+  "title": "Store Decimal places as int so it can be introspected",
+  "description": "fields.Decimal converted places into a quantize exponent in __init__, so field.places was a Decimal like Decimal('0.01') instead of the int the user passed. Tools that read field metadata (docs generators, apispec plugins) had to reverse that. This keeps places as the original int and builds the exponent when formatting. Behaviour is unchanged.",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "src/marshmallow/fields.py",
+      "line": 1127,
+      "category": "truthiness",
+      "description": "The check changed from `self.places is not None` to `if self.places`. Now that places is a plain int, places=0 is falsy, so Decimal(places=0) silently skips quantizing and no longer rounds to a whole number (e.g. '12.6' stays 12.6 instead of 13). Fix: `if self.places is not None and num.is_finite()`.",
+      "needs_other_files": false
+    }
+  ],
+  "related_files": [],
+  "proof_test": "evals/prs/proofs/test_pr_09.py",
+  "fix_patch": "evals/prs/proofs/pr_09_fix.diff"
+}

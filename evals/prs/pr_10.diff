@@ -1,0 +1,50 @@
+diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py
+index c375e74c..6419f8bc 100644
+--- a/src/marshmallow/fields.py
++++ b/src/marshmallow/fields.py
+@@ -1150,6 +1150,10 @@ class Boolean(Field[bool]):
+     :param falsy: Values that will (de)serialize to `False`. If `None`,
+         `marshmallow.fields.Boolean.falsy` will be used.
+     :param kwargs: The same keyword arguments that :class:`Field` receives.
++
++    .. versionchanged:: 4.5.0
++        "enabled" and "disabled" (in lower, title and upper case) are accepted
++        by default, as commonly sent by feature-flag and settings forms.
+     """
+ 
+     #: Default truthy values.
+@@ -1167,6 +1171,9 @@ class Boolean(Field[bool]):
+         "yes",
+         "Yes",
+         "YES",
++        "disabled",
++        "Enabled",
++        "ENABLED",
+         "1",
+         1,
+         # Equal to 1
+@@ -1187,6 +1194,9 @@ class Boolean(Field[bool]):
+         "no",
+         "No",
+         "NO",
++        "disabled",
++        "Disabled",
++        "DISABLED",
+         "0",
+         0,
+         # Equal to 0
+diff --git a/tests/test_deserialization.py b/tests/test_deserialization.py
+index f0ae688c..7f302ae5 100644
+--- a/tests/test_deserialization.py
++++ b/tests/test_deserialization.py
+@@ -350,6 +350,10 @@ class TestFieldDeserialization:
+         assert field.deserialize("no") is False
+         assert field.deserialize("NO") is False
+         assert field.deserialize("No") is False
++        assert field.deserialize("Enabled") is True
++        assert field.deserialize("ENABLED") is True
++        assert field.deserialize("Disabled") is False
++        assert field.deserialize("DISABLED") is False
+         assert field.deserialize(1) is True
+         assert field.deserialize(0) is False
+ 

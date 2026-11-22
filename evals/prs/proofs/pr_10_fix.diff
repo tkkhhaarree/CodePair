@@ -1,0 +1,13 @@
+diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py
+index 6419f8bc..6f890237 100644
+--- a/src/marshmallow/fields.py
++++ b/src/marshmallow/fields.py
+@@ -1171,7 +1171,7 @@ class Boolean(Field[bool]):
+         "yes",
+         "Yes",
+         "YES",
+-        "disabled",
++        "enabled",
+         "Enabled",
+         "ENABLED",
+         "1",

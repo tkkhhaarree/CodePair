@@ -1,0 +1,13 @@
+diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py
+index 6375569f..1b6c166d 100644
+--- a/src/marshmallow/fields.py
++++ b/src/marshmallow/fields.py
+@@ -783,7 +783,7 @@ class List(Field[list[_InternalT | None]]):
+         if self.max_items is not None:
+             # materialize generators/querysets so we can check the length
+             value = list(value)
+-            if len(value) >= self.max_items:
++            if len(value) > self.max_items:
+                 raise self.make_error("too_long", max_items=self.max_items)
+ 
+         result = []

@@ -1,0 +1,38 @@
+diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py
+index c375e74c..c1be8841 100644
+--- a/src/marshmallow/fields.py
++++ b/src/marshmallow/fields.py
+@@ -1567,10 +1567,14 @@ class TimeDelta(Field[dt.timedelta]):
+         except (TypeError, ValueError) as error:
+             raise self.make_error("invalid") from error
+ 
+-        kwargs = {self.precision: value}
++        # Build the timedelta from whole microseconds, mirroring _serialize, instead of
++        # passing a float in `precision` units: for large unit counts, timedelta's own
++        # per-unit float arithmetic can drift by a few microseconds.
++        microseconds_per_unit = self._unit_to_microseconds_mapping[self.precision]
+ 
+         try:
+-            return dt.timedelta(**kwargs)
++            microseconds = int(value * microseconds_per_unit)
++            return dt.timedelta(microseconds=microseconds)
+         except (OverflowError, ValueError) as error:
+             # OverflowError: value out of timedelta's range (e.g. infinity).
+             # ValueError: value is NaN.
+diff --git a/tests/test_deserialization.py b/tests/test_deserialization.py
+index f0ae688c..0d7d8957 100644
+--- a/tests/test_deserialization.py
++++ b/tests/test_deserialization.py
+@@ -863,6 +863,12 @@ class TestFieldDeserialization:
+         unit_value = dt.timedelta(weeks=1).total_seconds()
+         assert math.isclose(result.total_seconds() / unit_value, total_weeks_value)
+ 
++    def test_timedelta_field_deserialization_large_values_are_exact(self):
++        field = fields.TimeDelta(fields.TimeDelta.WEEKS)
++        assert field.deserialize(100000) == dt.timedelta(weeks=100000)
++        field = fields.TimeDelta(fields.TimeDelta.HOURS)
++        assert field.deserialize(10**7) == dt.timedelta(hours=10**7)
++
+     @pytest.mark.parametrize(
+         "in_value", ["", "badvalue", [], 9999999999, "nan", "inf", "-inf"]
+     )

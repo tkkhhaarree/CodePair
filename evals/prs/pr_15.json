@@ -1,0 +1,19 @@
+{
+  "id": "pr_15",
+  "branch": "pr-15-enum-case-insensitive",
+  "title": "Add case_insensitive option to fields.Enum",
+  "description": "Clients often send enum names or values in a different case ('MALE', 'Black Hair'). This adds case_insensitive=True to fields.Enum, which matches names (or string values with by_value) regardless of case. Non-string enum values are kept as-is in the lookup table. Tests cover both by-name and by-value.",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "src/marshmallow/fields.py",
+      "line": 2000,
+      "category": "type-check",
+      "description": "val.lower() is called without checking the type. With by_value=True the inner field is Raw, so any non-string input (e.g. 12) raises AttributeError instead of a ValidationError (a 500 instead of a 400), and enums with int values crash even for valid input like 2. Unhashable input such as a list raises TypeError in the dict lookup. Fix: only lower() strings and catch (KeyError, TypeError).",
+      "needs_other_files": false
+    }
+  ],
+  "related_files": [],
+  "proof_test": "evals/prs/proofs/test_pr_15.py",
+  "fix_patch": "evals/prs/proofs/pr_15_fix.diff"
+}

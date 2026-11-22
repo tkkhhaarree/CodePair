@@ -1,0 +1,76 @@
+diff --git a/src/marshmallow/utils.py b/src/marshmallow/utils.py
+index 24396027..26df760c 100644
+--- a/src/marshmallow/utils.py
++++ b/src/marshmallow/utils.py
+@@ -126,8 +126,8 @@ def _get_value_for_key(obj, key, default):
+ def set_value(
+     dct: dict[str, typing.Any],
+     key: str,
++    value: typing.Any,
+     sep: str = ".",
+-    value: typing.Any = None,
+ ):
+     """Set a value in a dict. If `key` contains `sep` (default '.'), it is
+     assumed to be a path (i.e. a delimited string) to the value's location.
+@@ -135,10 +135,10 @@ def set_value(
+     ::
+ 
+         >>> d = {}
+-        >>> set_value(d, 'foo.bar', '.', 42)
++        >>> set_value(d, 'foo.bar', 42)
+         >>> d
+         {'foo': {'bar': 42}}
+-        >>> set_value(d, 'a/b', '/', 1)
++        >>> set_value(d, 'a/b', 1, sep='/')
+         >>> d
+         {'foo': {'bar': 42}, 'a': {'b': 1}}
+     """
+@@ -149,7 +149,7 @@ def set_value(
+             raise ValueError(
+                 f"Cannot set {key} in {head} due to existing value: {target}"
+             )
+-        set_value(target, rest, sep, value)
++        set_value(target, rest, value, sep)
+     else:
+         dct[key] = value
+ 
+diff --git a/tests/test_utils.py b/tests/test_utils.py
+index 3e4a72f9..3f2988ab 100644
+--- a/tests/test_utils.py
++++ b/tests/test_utils.py
+@@ -71,29 +71,29 @@ def test_get_value_from_dict():
+ 
+ def test_set_value():
+     d: dict[str, int | dict] = {}
+-    utils.set_value(d, "foo", ".", 42)
++    utils.set_value(d, "foo", 42)
+     assert d == {"foo": 42}
+ 
+     d = {}
+-    utils.set_value(d, "foo.bar", ".", 42)
++    utils.set_value(d, "foo.bar", 42)
+     assert d == {"foo": {"bar": 42}}
+ 
+     d = {"foo": {}}
+-    utils.set_value(d, "foo.bar", ".", 42)
++    utils.set_value(d, "foo.bar", 42)
+     assert d == {"foo": {"bar": 42}}
+ 
+     d = {"foo": 42}
+     with pytest.raises(ValueError):
+-        utils.set_value(d, "foo.bar", ".", 42)
++        utils.set_value(d, "foo.bar", 42)
+ 
+ 
+ def test_set_value_custom_sep():
+     d: dict[str, int | dict] = {}
+-    utils.set_value(d, "foo/bar", "/", 42)
++    utils.set_value(d, "foo/bar", 42, sep="/")
+     assert d == {"foo": {"bar": 42}}
+ 
+     d = {}
+-    utils.set_value(d, "foo.bar", "/", 42)
++    utils.set_value(d, "foo.bar", 42, sep="/")
+     assert d == {"foo.bar": 42}
+ 
+ 

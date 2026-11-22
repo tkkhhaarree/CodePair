@@ -58,6 +58,35 @@ No codebase search, no tools, no loop. Purposes:
 Expected weakness: bugs that need other files (e.g. pr_04, a caller in schema.py breaks) are hard
 to catch from the diff alone. That gap is what M3/M4 should close - and the evals will show it.
 
+## Diff parsing and the post-filter (M1)
+
+**Hunk** = one block of changes inside a file's diff: a group of nearby changed lines plus ~3
+unchanged context lines around them, starting with an `@@ -old_start,old_count +new_start,new_count @@`
+header. Changes far apart in the same file become separate hunks.
+
+A unified diff already says which lines were added (`+`), removed (`-`) or unchanged (context), but
+line numbers are only **implicit**: one start number per hunk (`@@ -728,21 +728,31 @@`), then you
+count down, skipping `-` lines. `app/diff.py` makes each line's new-file number explicit (LLMs are
+bad at counting) and turns the text into data code can query. It does not add context beyond the
+~3 lines around each change - that is M3/M4's job.
+
+**dataclass vs Pydantic:** both define a class with typed fields. `@dataclass` (built into Python)
+just stores data and does no checking - fine for data our own code creates (diff lines). Pydantic
+validates - needed for data from outside (LLM replies, API requests). Rule: validate at the edges.
+
+**Post-filter** = plain code that runs after the LLM and drops comments that break the rules:
+1. File not in the diff, or line not shown in the diff (hallucinated or miscounted line).
+2. Repeats a ruff finding on the same line (lint is code's job, not the LLM's).
+Why: prompts are requests, code is enforcement. Also GitHub rejects inline comments on lines outside
+the PR diff, and in the eval a misplaced comment would count against precision. Dropped comments are
+kept in the output (with a reason) so we can see how often the LLM breaks the rules.
+
+**Is a bug always inside the diff?** No - its *effect* can be anywhere (pr_04 breaks a caller in
+schema.py, which is not in the diff). But its *cause* is a changed line, so the comment is
+**anchored** on that line and the message names the other file ("this breaks schema.py:689").
+Real reviewers (and GitHub) work the same way. Bugs that existed before the PR and aren't touched by
+it are out of scope for a PR review. Concerns with no single line go in the `summary`.
+
 ## Structured output (M1)
 
 **Pydantic** - Python's zod. A class describes a data shape; Pydantic validates real data against it,
@@ -82,3 +111,13 @@ before the call (turned into a JSON Schema and sent) and after (to validate the 
 The schema guarantees **shape**, never **correctness**. A comment can be well-formed and still point
 at a line that is not in the diff - so code still checks facts after the LLM (post-filter).
 The older way (ask for JSON in the prompt, retry on parse errors) works mostly, not always.
+
+**Can structured output still fail?** Not by producing wrong-shaped JSON - but the call can still
+end without a valid object:
+1. **Hit `max_tokens`** (`stop_reason == "max_tokens"`): output cut off mid-JSON, so incomplete.
+2. **Refusal** (`stop_reason == "refusal"`): the model declines; no object.
+3. **Rules the grammar can't enforce** (e.g. numeric min/max): the SDK checks them after the reply,
+   so Pydantic validation can still fail.
+4. **Schema the API doesn't support**: the request is rejected (400) before generation.
+So the `app/llm/` wrapper checks `stop_reason` and validation errors, and fails clearly (or retries)
+instead of crashing somewhere later.

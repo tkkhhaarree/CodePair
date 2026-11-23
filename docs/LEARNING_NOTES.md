@@ -87,6 +87,20 @@ schema.py, which is not in the diff). But its *cause* is a changed line, so the 
 Real reviewers (and GitHub) work the same way. Bugs that existed before the PR and aren't touched by
 it are out of scope for a PR review. Concerns with no single line go in the `summary`.
 
+## Running ruff on a PR (M1, `app/lint.py`)
+
+Ruff needs whole files; a diff has fragments. So: base code out of git (`git archive demo-main`)
+into a temp folder, then `git apply` the diff = the PR's version. Works for any diff (eval PRs,
+pasted diffs, agent patches) - the same steps the M5 sandbox needs.
+- **`git apply` checks context lines** match the base before changing anything, and is
+  all-or-nothing. A refusal means wrong base or broken diff - fail loudly instead of reviewing the
+  wrong code.
+- Only findings on **added** lines are kept: lint problems on untouched lines are not this PR's fault.
+- Ruff only parses code, never runs it - so it is safe outside the sandbox. pytest runs code, so it
+  must wait for the sandbox.
+- Uses the target repo's own ruff config (marshmallow: `select = ["ALL"]`, `fix = true` -> we pass
+  `--no-fix` so ruff reports instead of rewriting).
+
 ## Structured output (M1)
 
 **Pydantic** - Python's zod. A class describes a data shape; Pydantic validates real data against it,

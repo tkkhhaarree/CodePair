@@ -144,6 +144,17 @@ def commentable_lines(files: list[FileDiff]) -> set[tuple[str, int]]:
     }
 
 
+def added_lines(files: list[FileDiff]) -> set[tuple[str, int]]:
+    """Only the (file, new line number) pairs the PR added or changed ('+' lines)."""
+    return {
+        (f.path, line.new_no)
+        for f in files
+        for h in f.hunks
+        for line in h.lines
+        if line.kind == "add"
+    }
+
+
 if __name__ == "__main__":
     # Lets you run: python -m app.diff evals/prs/pr_01.diff
     with open(sys.argv[1], encoding="utf-8") as fh:

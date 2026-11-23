@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.diff import commentable_lines, format_for_llm, parse_diff
+from app.diff import added_lines, commentable_lines, format_for_llm, parse_diff
 
 SMALL_DIFF = """\
 diff --git a/pkg/mod.py b/pkg/mod.py
@@ -36,6 +36,10 @@ def test_line_numbers():
 def test_commentable_lines_skip_removed():
     files = parse_diff(SMALL_DIFF)
     assert commentable_lines(files) == {("pkg/mod.py", n) for n in (10, 11, 12, 13, 14)}
+
+
+def test_added_lines_only_plus_lines():
+    assert added_lines(parse_diff(SMALL_DIFF)) == {("pkg/mod.py", 11), ("pkg/mod.py", 12)}
 
 
 def test_format_for_llm_shows_numbers():

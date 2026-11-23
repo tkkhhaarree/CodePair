@@ -26,6 +26,32 @@ CodePair (this repo)                       marshmallow demo repo (D:\marshmallow
   dependencies). Forked to https://github.com/tkkhhaarree/marshmallow, branch `demo-main` from tag 4.4.0.
 - **Infra:** Docker Compose runs Postgres 16 with pgvector (for M3 search) and Redis (for the M8 queue).
 
+### M1 reviewer pipeline (single pass)
+
+```
+base from git -> temp repo -> apply diff -> ruff on changed files (repo's own config)
+    -> keep findings on added lines ------------------------------------+
+                    |                                                   |
+                    v                                                   |
+numbered diff + PR title/description + ruff findings ("already reported")|
+    -> LLM reviewer -> LLM comments -> post-filter                      |
+                         (drop: lines not in diff, repeats of ruff)     |
+                                          |                             |
+                                          v                             v
+                                FINAL REVIEW = LLM comments + ruff findings
+```
+
+| Module | Job (input -> output) |
+|---|---|
+| `app/schemas.py` | Shapes the LLM must return: `ReviewResult` = summary + list of `ReviewComment` |
+| `app/diff.py` | diff text -> files/hunks/lines with explicit line numbers; `format_for_llm` (numbered diff), `commentable_lines` (added + context, for the post-filter), `added_lines` (`+` only, for ruff) |
+| `app/lint.py` | diff text -> this PR's ruff findings. `lint_diff` coordinates: `build_pr_tree` (base from git + `git apply` into a temp folder, `PatchError` if the diff doesn't fit), `run_ruff` (all findings in changed files), then filter to added lines |
+| `app/llm/` | (next) the only place that calls the Claude API; logs tokens, cost, latency |
+| `app/reviewer/` | (next) builds the prompt, calls the LLM, post-filters, prints the review |
+
+Only the LLM comments are scored in the eval; ruff findings are shown but not scored.
+`build_pr_tree` will be reused by the M5 sandbox and the M4 tools (the PR's code on disk).
+
 ## Key design decisions and trade-offs
 
 **1. Review test set = real branches with planted bugs.**

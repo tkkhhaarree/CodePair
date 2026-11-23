@@ -46,7 +46,7 @@ numbered diff + PR title/description + ruff findings ("already reported")|
 | `app/schemas.py` | Shapes the LLM must return: `ReviewResult` = summary + list of `ReviewComment` |
 | `app/diff.py` | diff text -> files/hunks/lines with explicit line numbers; `format_for_llm` (numbered diff), `commentable_lines` (added + context, for the post-filter), `added_lines` (`+` only, for ruff) |
 | `app/lint.py` | diff text -> this PR's ruff findings. `lint_diff` coordinates: `build_pr_tree` (base from git + `git apply` into a temp folder, `PatchError` if the diff doesn't fit), `run_ruff` (all findings in changed files), then filter to added lines |
-| `app/llm/` | (next) the only place that calls the Claude API; logs tokens, cost, latency |
+| `app/llm/` | `call_structured(agent, system, user, output_type, model, max_tokens, effort)` -> (validated Pydantic object, `CallLog`), or `LLMError` (API error, cut off at max_tokens, refusal, failed validation). The only module that imports `anthropic`. Logs every call, success or failure, to `logs/llm_calls.jsonl`; prices in `pricing.py`. `python -m app.llm` = smoke test |
 | `app/reviewer/` | (next) builds the prompt, calls the LLM, post-filters, prints the review |
 
 Only the LLM comments are scored in the eval; ruff findings are shown but not scored.
@@ -83,6 +83,12 @@ The reviewer answers in a Pydantic shape (`ReviewResult` with `ReviewComment`s),
 API's constrained decoding. The shape is guaranteed; the content is still checked by code.
 
 **7. Model is configurable.** `REVIEWER_MODEL` in `.env`; starting with Claude Sonnet 5.5 for cost.
+`REVIEWER_EFFORT=medium` (how much the model reasons); raised only if evals show missed bugs.
+
+**8. Log first, validate second.** The SDK's `messages.parse()` validates inside the call, so a
+cut-off reply raises before we see its token usage. `app/llm/` instead calls `messages.create` with
+the same JSON Schema (constrained decoding), logs usage and cost, checks `stop_reason`, and only then
+validates. Every call - including failures - is logged.
 
 ## Failure modes and how they are handled
 

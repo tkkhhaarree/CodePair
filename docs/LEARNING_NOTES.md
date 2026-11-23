@@ -135,3 +135,23 @@ end without a valid object:
 4. **Schema the API doesn't support**: the request is rejected (400) before generation.
 So the `app/llm/` wrapper checks `stop_reason` and validation errors, and fails clearly (or retries)
 instead of crashing somewhere later.
+
+**Why `app/llm/` uses `messages.create` + our own validation instead of `messages.parse()`:**
+`parse()` validates *inside* the call, so a cut-off reply raises a Pydantic error and we never get the
+response - no `stop_reason` (to say why) and no token counts (to log the cost). Failed calls cost
+money too. So we do the same steps ourselves in a safer order: `anthropic.transform_schema()` (the
+helper `parse()` uses) -> `create(output_config={"format": ...})` (same constrained decoding) ->
+log usage -> check `stop_reason` -> validate with Pydantic.
+
+## The LLM wrapper (M1, `app/llm/`)
+
+- **One door:** every agent calls `call_structured()`; only `app/llm/claude.py` imports `anthropic`.
+  Swapping provider = a new module with the same function signature.
+- **Every call is logged** (success or failure) as one line in `logs/llm_calls.jsonl`: time, agent,
+  model, effort, tokens, cost, latency, stop_reason, error. JSONL = one JSON object per line.
+- **Cost** = tokens x price per million (table in `pricing.py`). Output tokens include thinking.
+- **Thinking and effort:** Sonnet 5.5 always reasons before answering; `effort` (low ... max) sets
+  how much. More effort = more (billed) thinking tokens and latency. We use `medium` for the reviewer
+  and will raise it only if the evals show it misses things.
+- **Generic function** `def call_structured[T: BaseModel](..., output_type: type[T]) -> tuple[T, CallLog]`
+  = TypeScript `<T extends BaseModel>`: pass `ReviewResult`, get a `ReviewResult` back.

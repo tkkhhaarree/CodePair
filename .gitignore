@@ -9,6 +9,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
+# LLM call logs (local only)
+logs/
+
 # node (UI later)
 node_modules/
 dist/

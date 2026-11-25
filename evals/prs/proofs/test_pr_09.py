@@ -13,7 +13,7 @@ from marshmallow import fields
 def test_places_zero_rounds_to_whole_number():
     # places=0 means "round to an integer"; the PR's `if self.places` treats 0 as unset.
     field = fields.Decimal(places=0)
-    assert field.deserialize("12.6") == decimal.Decimal("13")
+    assert field.deserialize("12.6") == decimal.Decimal(13)
 
 
 def test_places_zero_with_rounding():

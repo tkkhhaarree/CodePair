@@ -35,6 +35,17 @@ class ReviewComment(BaseModel):
     suggested_fix: str | None = Field(description="Short code or description of the fix, or null.")
 
 
+class JudgeVerdict(BaseModel):
+    """The eval judge's answer to one yes/no question.
+
+    `reason` comes BEFORE `yes` on purpose: the model writes fields in order, so it
+    reasons first and decides second (instead of deciding, then justifying).
+    """
+
+    reason: str = Field(description="One or two sentences explaining the decision.")
+    yes: bool = Field(description="The answer to the question asked.")
+
+
 class ReviewResult(BaseModel):
     """Everything the reviewer returns for one PR."""
 

@@ -56,6 +56,9 @@ Python has no per-project packages by default, so without a venv everything inst
   exit code 0 = success, non-zero = failure (scripts and CI read it).
 - **Format spec in f-strings:** `f"{x:.4f}"` = 4 decimal places (= `x.toFixed(4)`).
 - **`python -m package`** runs `package/__main__.py` (like `"main"`/`"bin"` in package.json).
+  `python -m evals.judge` runs a module by its dotted name and makes imports start from the current
+  folder, so `from app...` works. `python evals/judge.py` starts from `evals/` -> `No module named 'app'`.
+  `python -m pytest` / `-m pip` = run that tool with *this* Python (the venv's copy).
 
 ## Docker
 

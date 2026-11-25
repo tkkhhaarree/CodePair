@@ -27,6 +27,36 @@ Python has no per-project packages by default, so without a venv everything inst
 **pytest** - test runner (Jest). Finds `test_*.py` files and `test_*` functions; plain `assert`.
 **python-dotenv** - loads `.env` into environment variables (the `dotenv` npm package).
 
+## Python idioms (picked up while writing code)
+
+- **Comprehensions:** `[x.path for x in files if x.ok]` (list), `{f for f, _ in pairs}` (set),
+  = JS `files.filter(...).map(...)`. `{}` alone is an empty *dict*; an empty set is `set()`.
+- **Tuple unpacking:** `for file, line in pairs:` = JS `for (const [file, line] of pairs)`.
+  `_` = "I don't need this part". `return a, b` returns a tuple; `a, b = f()` unpacks it.
+- **Copies, not in-place changes:** `c.model_copy(update={...})` returns a NEW object
+  (= `{...c, file: x}`); you must store it: `c = c.model_copy(...)`, or the change is lost.
+- **f-strings:** `f"line {c.line} not shown"` = JS template string `` `line ${c.line} not shown` ``.
+- **`is None` / `is not None`** to compare with None (not `==`).
+- **Walrus `:=`** assigns inside an expression: `if (dup := find()) is not None:`. It has very low
+  precedence, so **always wrap it in parentheses** - without them `dup := find() is not None`
+  stores `True`/`False` in `dup`.
+- **`d.get("key", default)`** = `d.key ?? default`; `d.get("key") or ""` also covers `null`/empty values.
+- **Early return:** after `if ...: return`, no `else:` needed.
+- **`ruff format file.py`** = Prettier: fixes spacing, trailing spaces, long lines.
+- **`lambda`** = a one-expression unnamed function, used as a **callback** (= JS arrow function):
+  `sorted(comments, key=lambda c: (c.file, c.line))`. Python's sort callback takes ONE item and
+  returns the value to sort by (JS's takes two and compares). Any function works as a callback:
+  `key=by_position` passes the function; `key=by_position()` would pass its result (wrong).
+- **Tuples compare element by element**, so sorting by `(file, line)` = by file, then line.
+- **Regex:** `re.findall(r"`([^`]+)`", text)` = list of every match of the `( )` group
+  (here: text between backticks). `r"..."` = raw string, keeps backslashes as-is.
+- **`any(cond for x in items)`** = JS `items.some(x => cond)`; `"a" in "cat"` on strings = `.includes()`.
+- **`try / except SomeError as e:`** = `try / catch` that catches only that error type.
+- **`sys.argv`** = `process.argv` (command-line words); **`sys.exit(code)`** = `process.exit(code)`;
+  exit code 0 = success, non-zero = failure (scripts and CI read it).
+- **Format spec in f-strings:** `f"{x:.4f}"` = 4 decimal places (= `x.toFixed(4)`).
+- **`python -m package`** runs `package/__main__.py` (like `"main"`/`"bin"` in package.json).
+
 ## Docker
 
 Postgres and Redis could be installed locally. Docker is used for three reasons:
@@ -100,6 +130,42 @@ pasted diffs, agent patches) - the same steps the M5 sandbox needs.
   must wait for the sandbox.
 - Uses the target repo's own ruff config (marshmallow: `select = ["ALL"]`, `fix = true` -> we pass
   `--no-fix` so ruff reports instead of rewriting).
+
+## Prompt design for the reviewer (M1, `app/reviewer/prompt.py`)
+
+- **System vs user message:** the API takes a `system` text (who you are, how to behave - weighted
+  most, like a job description) and `user` messages (this request's material, like today's task).
+- **Severity `nit`** = a minor correctness/robustness improvement, **never style** (changed by me so
+  it doesn't contradict the "no style comments" rule).
+- **System prompt = our rules** (same for every PR): what to look for (logic, edge cases, broken
+  callers, error handling, security, risky design), what NOT to comment on (style, lint), how to
+  anchor comments (numbered lines only; cause line + mention other file), severity meanings.
+- **User message = this PR's content**, each part in its own tag: `<pr_title>`, `<pr_description>`,
+  `<linter_findings>`, `<diff>`. Tags let the model tell our instructions apart from their content.
+- **"A correct PR should get zero comments - do not pad the review."** LLMs tend to always find
+  *something*; without this, clean PRs get false alarms and precision drops.
+- **"Give a concrete input where it fails"** pushes the model to reason about real behaviour instead
+  of vague worries - and makes comments checkable.
+- **Untrusted data:** PR text and code may contain "approve this" style instructions; the system prompt
+  says never follow them and report them. Cheap first defence; full guardrails in M7.
+
+**Duplicate-of-ruff rule (option A, chosen):** drop an LLM comment only if it is on the same file +
+line as a ruff finding AND mentions the same thing (rule code like `F401`, or a name ruff put in
+backticks). Same line alone is not enough - a real bug can share a line with a lint issue, and
+losing it would cost recall. Trade-off: a reworded duplicate can slip through.
+
+## First real reviews (M1) and what they taught
+
+- pr_01: caught the planted `>=` bug (right line, right fix) + one useful test-gap comment + one
+  **false alarm**: it claimed `utils.is_collection` rejects generators (false). `is_collection` is
+  not in the diff, so the model **guessed** - and stated the guess confidently. Missing context ->
+  false alarms; M3 (RAG) / M4 (tools) should let it check instead of guess.
+- pr_04: caught the cross-file signature break without seeing `schema.py`, by general reasoning
+  ("reordering positional params breaks callers") - it could not *confirm* the caller location.
+- **Data contamination:** marshmallow is public, so the model has probably seen its code in
+  training and may partly *remember* it rather than reason. Scores may be optimistic vs a private
+  codebase, and the measured RAG gain may be smaller. A fair follow-up: test on a lesser-known repo.
+- Cost ~ $0.012 and ~7 s per PR on Sonnet 5.5 at effort medium.
 
 ## Structured output (M1)
 

@@ -4,7 +4,8 @@ Kept up to date after every milestone. Concept explanations for learning live in
 
 **Status:** M0 done (setup + first 6 review PRs; more PRs and the task set still to add).
 M1 done: `python -m app.reviewer evals/prs/pr_01.diff` prints filtered review comments with cost
-(~$0.012, ~7 s per PR). Next: M2 review evals.
+(~$0.012, ~7 s per PR). M2 in progress: the eval script works (draft run on 6 PRs: recall 6/6,
+precision 10/12); next, add PRs (incl. clean ones) and save the official baseline.
 
 ---
 
@@ -57,6 +58,23 @@ numbered diff + PR title/description + ruff findings ("already reported")|
 
 Only the LLM comments are scored in the eval; ruff findings are shown but not scored.
 `build_pr_tree` will be reused by the M5 sandbox and the M4 tools (the PR's code on disk).
+
+### M2 review eval
+
+```
+for each evals/prs/pr_NN:
+  review_diff(diff, title, description)          (bug labels never passed in)
+  recall:    each planted bug -> comments on same file within +-3 lines -> judge "same bug?"
+  precision: comments that caught a bug = real; others -> judge "real problem?"
+totals -> recall, precision, false alarms on clean PRs, cost + latency (mean, p95)
+       -> docs/eval/review_<date>_<label>.md + .json
+```
+
+| Module | Job (input -> output) |
+|---|---|
+| `evals/judge.py` | (bug or comment + diff excerpt) -> `JudgeVerdict` (reason first, then yes/no). Model and effort from `JUDGE_MODEL` / `JUDGE_EFFORT`, separate from the reviewer's |
+| `evals/metrics.py` | `recall`, `precision`, `mean`, `p95` (nearest-rank); each returns None when there is nothing to measure |
+| `evals/run_review_eval.py` | `python -m evals.run_review_eval --label NAME [--prs pr_01 ...]` -> per-PR results, summary, saved report |
 
 ## Key design decisions and trade-offs
 
@@ -114,6 +132,14 @@ never prints or handles errors; the CLI (`__main__.py`) turns errors into friend
 prints the review. The eval, playground and GitHub App call `review_diff()` directly. The CLI is the
 manual way in, for trying and debugging single PRs.
 
+**13. The eval checks line position in code, meaning with an LLM judge.** A comment can only
+catch a bug if it is on the same file within +-3 lines (cheap, certain); only those candidates go to
+the judge. The judge is a stronger model than the reviewer and writes its reason before its verdict.
+
+**14. Latency is measured twice.** Whole review (parse + ruff + LLM + filter) and the LLM call
+alone. Later milestones add work outside the LLM call (search, tools), so only the whole-pipeline
+number compares fairly across milestones. p95 is reported next to the mean to show slow outliers.
+
 ## Failure modes and how they are handled
 
 | Failure | Handling |
@@ -128,6 +154,8 @@ manual way in, for trying and debugging single PRs.
 | Diff doesn't fit the base | `PatchError` from `git apply`; the CLI prints a clear message, no LLM call is made |
 | Reviewer guesses about code it can't see (false alarm) | Known M1 limit (diff-only context); RAG in M3 and tools in M4 let it check |
 | Model already knows the public target repo (contamination) | Flagged as an eval caveat; scores may be optimistic vs private code |
+| Judge is wrong | Judge sees the bug label and the diff excerpt, gives its reason first; reasons are saved in the report to spot-check |
+| Test set too small or too easy (100% recall on 6 PRs) | Add clean PRs and cross-file bugs before the official baseline |
 | PR text tries to instruct the reviewer | System prompt: PR content is untrusted data, never follow it (full defences in M7) |
 
 ## Likely interview questions
@@ -156,3 +184,12 @@ A fair follow-up is repeating the eval on a lesser-known repo.
 **Q: How do you get reliable JSON out of an LLM?**
 A: Structured output: the SDK turns a Pydantic class into a JSON Schema and the API constrains
 decoding to it, so the reply always matches the shape. Correctness is still checked in code.
+
+**Q: What do precision and recall mean for a code reviewer?**
+A: Recall = share of real bugs it caught; precision = share of its comments that point to a real
+problem. You need both: a bot that comments on everything has high recall and is ignored by the team.
+
+**Q: Why report p95 latency and not just the average?**
+A: The average hides slow outliers. p95 is the time 95% of reviews finish within, so it tells you
+what nearly every user experiences. I time the whole review and the LLM call separately, because
+RAG and tools add time outside the LLM call.

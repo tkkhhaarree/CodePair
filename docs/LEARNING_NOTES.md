@@ -59,6 +59,15 @@ Python has no per-project packages by default, so without a venv everything inst
   `python -m evals.judge` runs a module by its dotted name and makes imports start from the current
   folder, so `from app...` works. `python evals/judge.py` starts from `evals/` -> `No module named 'app'`.
   `python -m pytest` / `-m pip` = run that tool with *this* Python (the venv's copy).
+  Only the word right after `-m` is a module name; everything after it is passed to that program:
+  `python -m pytest tests/test_metrics.py -q` = run pytest, give it a file path (= `npx jest tests/x.test.js`).
+- **`if not values:`** = "is the list empty?" (an empty list/string/dict counts as false).
+- **`sorted(xs)`** returns a NEW sorted list; `xs.sort()` changes `xs` itself (= JS `.sort()`).
+- **Implicit string concatenation:** `("abc " "def")` = `"abc def"`. Two strings side by side are
+  joined. Ruff (ISC004) wants them inside `( )` so it's clearly on purpose, not a missing comma.
+- **`argparse`** = command-line options (= `yargs`/`commander` in Node): `--label m1` becomes `args.label`.
+- **`time.perf_counter()`** = a stopwatch (= `performance.now()`); only the difference between
+  two readings means anything.
 
 ## Docker
 
@@ -224,3 +233,36 @@ log usage -> check `stop_reason` -> validate with Pydantic.
   and will raise it only if the evals show it misses things.
 - **Generic function** `def call_structured[T: BaseModel](..., output_type: type[T]) -> tuple[T, CallLog]`
   = TypeScript `<T extends BaseModel>`: pass `ReviewResult`, get a `ReviewResult` back.
+
+## Scoring the reviewer (M2, `evals/run_review_eval.py`, `evals/metrics.py`)
+
+- **Recall** = bugs caught / bugs planted. "Did it find the bugs?" Ignores noise: commenting on
+  everything gives 100% recall.
+- **Precision** = real comments / all comments. "When it complains, is it right?" Ignores missed
+  bugs: one correct comment gives 100%. They pull against each other, so measure both. Low
+  precision is what makes developers ignore a bot. (Spam filter: recall = share of spam caught;
+  precision = share of the spam folder that really is spam.)
+- **None, not 0, when there is nothing to measure:** recall with 0 planted bugs is "n/a", not 0%,
+  and dividing by 0 would crash.
+- **p95 latency** = sort the run times, take the ONE run at the 95% position (by count of runs, not
+  by time): 95% of runs took that long or less. The mean hides slow outliers; p95 shows the bad
+  day. Nearest-rank method: `rank = ceil(0.95 * n)`, value at index `rank - 1`. With 6 runs,
+  ceil(5.7) = 6, so p95 = the slowest run; it becomes useful at 20+ runs. It is computed only over
+  finished runs; runs that hang hit a time limit and count as failures.
+- **What we time:** two numbers. *Review latency* = the whole `review_diff()` (parse + ruff + LLM
+  + post-filter). *LLM latency* = only the Claude call. M3/M4 add work outside the LLM call
+  (search, tools), so the whole-pipeline number is the honest one to compare.
+- **How the eval works, per PR:** reviewer gets diff + title + description only -> for each
+  planted bug, comments on the same file within +-3 lines are candidates and the judge answers
+  "same bug?" (first yes = caught) -> every comment that didn't catch a bug is judged "real
+  problem?" -> totals -> report saved as `.md` (for people) and `.json` (for comparing runs).
+
+### First eval run (m1-draft, 6 PRs)
+
+- Recall 6/6, precision 10/12, ~$0.011 and ~6 s per PR (LLM only). The judge (Opus, 18 calls)
+  cost more than the reviewer (Sonnet, 6 calls).
+- **100% recall is not trustworthy yet:** only 6 PRs, each with one obvious single-file bug, no
+  clean PRs, and marshmallow is public (the model may know it).
+- **Both false alarms had the same cause:** the reviewer guessed about code outside the diff
+  (`is_collection`, `_unit_to_microseconds_mapping`) and couldn't check. This is the M1 limit that
+  M3 (search) and M4 (tools like `read_file`) should fix; precision is the number to watch.
